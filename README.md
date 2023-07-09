@@ -402,7 +402,7 @@ Here is an example where we remove the original `Duration` field:
 gql.addContext(tracks, ({ Query }) => {
     Query.removeArgument(m => m.Duration);
     // removing multiple arguments (the same arguments we added from the previous .addArgument example.)
-    Query.removeArgument(m => [m.DurationUpperBound, m.DurationLowerBound]);
+    Query.removeArgument(m => [m.FileSize, m.Name]);
 });
 ```
 
