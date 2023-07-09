@@ -274,6 +274,22 @@ There may be columns you want different behavior, or you just don't want the beh
 
 Additionally, with the default columns as filtering arguments, there will always be two arguments for all contexts, `skip`, and `take`. These filtering arguments allow you to automatically skip some records and/or limit the number of records you would like to retrieve.
 
+### Inserting
+
+The behavior that is generated using the `@myorm/graphql` plugin consists of each context mutation to expect arguments that belong to the main schema for that table, while maintaining what columns are required and what are not.  
+
+### Updating
+
+The behavior that is generated using the `@myorm/graphql` plugin consists of each context mutation to expect arguments that belong to the main schema for that table to be updated, but each argument is optional. Additionally, there will be an equal number of default-generated arguments that are prepended with `filterBy_`, which are what you would use to help determine which rows should get updated.
+
+__NOTE: If, for some reason, the API call results in the update occurring to all records, then `MyORM` should throw an exception, unless the `allowUpdateOnAll` option is enabled.__
+
+### Deleting
+
+The behavior that is generated using the `@myorm/graphql` plugin consists of each context mutation to expect arguments that belong to the main schema for that table to be used to determine what records should be deleted. This is similar to the `filterBy_` arguments in [Updating](#updating), so each argument will be optional.
+
+__NOTE: If, for some reason, the API call results in the delete occurring to all records, then `MyORM` should throw an exception. There is no generated behavior that allows for truncation.__
+
 ## Features
 
 Various features exist within the `@myorm/graphql` plugin, such as adding custom arguments, removing default arguments, or altering default arguments.
