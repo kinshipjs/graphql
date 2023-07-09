@@ -369,11 +369,15 @@ import { GraphQLInt } from 'graphql';
 // ... initialization
 
 gql.addContext(tracks, ({ Query }) => {
-    Query.addArgument("DurationUpperBound",
+    Query.addArgument({
+            name: "DurationUpperBound"
+        },
         (m,argVal) => m.DurationInMilliseconds.lessThanOrEqualTo(argVal), 
         GraphQLInt
     );
-    Query.addArgument("DurationLowerBound",
+    Query.addArgument({
+            name: "DurationLowerBound"
+        },
         (m,argVal) => m.DurationInMilliseconds.greaterThanOrEqualTo(argVal),
         GraphQLInt
     );
