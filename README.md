@@ -258,6 +258,54 @@ SELECT `User`.`Id` AS `Id`
 		AND `User`.LastName = "Doe"
 ```
 
+You can also edit your database with the mutation object, containing respective `insert`, `update`, and `delete` functionalities.  
+
+Each context will receive an edit root type, prepended respectively with `update`, `insert`, and `delete`.
+
+If, for some reason, you would like to ignore certain functionalities of your mutation, you can pass into the `.addContext` function's fourth (4th) parameter, `mutationOptions` the respective disable property to disable such behavior.  
+
+```ts
+gql.addContext(someContext, undefined, undefined, { disableInserts: true });
+```
+
+The mutation object acts the same as the query object, with the exception of the return values for the `update` and `delete` query functions, where the return values will only ever be `numRowsAffected` which would be the total number of rows affected from the execution.  
+
+Additionally, the `update` query function will automatically have double the parameters as the `query` query function, where one set of arguments are prepended with `filterBy_` and the other set being the arguments you use to choose what column to set the new value to.
+
+Finally, in the `insert` and `update` query functions, any argument that is deemed to be a virtually generated column or an `identity` column (automatically increments within the database) will be omitted.
+
+Here is an example of inserting a User.
+
+```
+mutation {
+    insertUser(FirstName: "John", LastName: "Doe") {
+        Id,
+        John,
+        Doe
+    }
+}
+```
+
+Here is an example of updating the User, "John Doe" to "Jane Doe". (assuming Id is `1`)
+
+```
+mutation {
+    updateUser(filterBy_Id: 1, FirstName: "Jane") {
+        numRowsAffected
+    }
+}
+```
+
+Here is an example of deleting the User, "Jane Doe" (assuming Id is `1`)
+
+```
+mutation {
+    deleteUser(Id: 1) {
+        numRowsAffected
+    }
+}
+```
+
 ## Generated behavior
 
 `@myorm/graphql` generates all of the GraphQL object types, as well as the root query and root mutation types. With that being the case, it is important to know what you would all have access to.  
@@ -278,11 +326,16 @@ Additionally, with the default columns as filtering arguments, there will always
 
 The behavior that is generated using the `@myorm/graphql` plugin consists of each context mutation to expect arguments that belong to the main schema for that table, while maintaining what columns are required and what are not.  
 
+__NOTE: Columns marked as an identity column (one that auto increments) or is virtually generated is omitted from the arguments that can be accepted.__
+
 ### Updating
 
 The behavior that is generated using the `@myorm/graphql` plugin consists of each context mutation to expect arguments that belong to the main schema for that table to be updated, but each argument is optional. Additionally, there will be an equal number of default-generated arguments that are prepended with `filterBy_`, which are what you would use to help determine which rows should get updated.
 
 __NOTE: If, for some reason, the API call results in the update occurring to all records, then `MyORM` should throw an exception, unless the `allowUpdateOnAll` option is enabled.__
+
+__NOTE: Columns marked as an identity column (one that auto increments) or is virtually generated is omitted from the arguments that can be accepted.__
+
 
 ### Deleting
 
@@ -290,7 +343,7 @@ The behavior that is generated using the `@myorm/graphql` plugin consists of eac
 
 __NOTE: If, for some reason, the API call results in the delete occurring to all records, then `MyORM` should throw an exception. There is no generated behavior that allows for truncation.__
 
-## Features
+## Arguments
 
 Various features exist within the `@myorm/graphql` plugin, such as adding custom arguments, removing default arguments, or altering default arguments.
 
@@ -298,9 +351,11 @@ Various features exist within the `@myorm/graphql` plugin, such as adding custom
 
 You can add custom arguments in the case that it would make more sense.  
 
+__NOTE: This functionality is not available for `Insert`. For `Update` and `Delete`, the arguments will act as filter arguments.__  
+
 For example, say you have a table called "Track" in a database that stores music, and you would like your GraphQL endpoint to be queried to receive all tracks where the duration of the track is between two numbers (in milliseconds). In this case, you may want two separate arguments called `DurationUpperBound` and `DurationLowerBound`.
 
-To add an argument, you just provide a callback within the `.addContext()` function in the second argument, where the callback you provide has access to the function `addArgument`.  
+To add an argument, you just provide a callback within the `.addContext()` function in the second argument, where the callback you provide has access to a single parameter which has 4 properties, `Query`, `Insert`, `Update`, and `Delete`. Each of these properties have the function `.addArgument`, which you can use to add an argument to its respective root `GraphQLObjectType`.
 
 `addArgument` takes in 3 arguments:
   - `argName`: `string` - Name of the argument as it should appear in GraphQL
@@ -313,12 +368,12 @@ Here is an example using what was discussed above:
 import { GraphQLInt } from 'graphql';
 // ... initialization
 
-gql.addContext(tracks, ({ addArgument }) => {
-    addArgument("DurationUpperBound",
+gql.addContext(tracks, ({ Query }) => {
+    Query.addArgument("DurationUpperBound",
         (m,argVal) => m.DurationInMilliseconds.lessThanOrEqualTo(argVal), 
         GraphQLInt
     );
-    addArgument("DurationLowerBound",
+    Query.addArgument("DurationLowerBound",
         (m,argVal) => m.DurationInMilliseconds.greaterThanOrEqualTo(argVal),
         GraphQLInt
     );
@@ -329,47 +384,65 @@ gql.addContext(tracks, ({ addArgument }) => {
 
 You can remove default arguments that you would not like to see in the GraphQL API.
 
-Just like [Adding custom arguments](#adding-custom-arguments), in the `.addContext()` function, you can remove any default arguments in the same configuration callback, where now you would have access to a function called `removeArgument`.  
+For example, say you have a table called "Track" in a database that stores music, and you would like your GraphQL endpoint to not be queried based on the duration at all. In this case, you would want to remove the ability to query by `Duration`.
 
-`removeArgument` behaves in the same manner as `MyORM` does as a whole, where you would specify a callback gives access to a parameter called `model`, which would be the model of the table the context represents. All you have to do is reference the argument (or arguments) you would like to remove.
+To remove an argument, you just provide a callback within the `.addContext()` function in the second argument, where the callback you provide has access to a single parameter which has 4 properties, `Query`, `Insert`, `Update`, and `Delete`. Each of these properties have the function `.removeArgument`, which you can use to remove an argument to its respective root `GraphQLObjectType`.  
 
-__NOTE: The `removeArgument` function can only remove default arguments, as there is no real reason to remove custom arguments **yet**__
+__NOTE: When using this function with `Insert`, the only arguments you are allowed to remove are optional arguments. This is to avoid any errors with database transactions.__  
 
-Here is an example going off the example in [Adding custom arguments](#adding-custom-arguments), where we remove the original `Duration` field:
+Here is an example where we remove the original `Duration` field:
 
 ```ts
 // ... initialization
 
-gql.addContext(tracks, ({ removeArgument }) => {
-    removeArgument(m => m.Duration);
-    // removing multiple arguments
-    removeArgument(m => [m.Duration, m.Foo]);
+gql.addContext(tracks, ({ Query }) => {
+    Query.removeArgument(m => m.Duration);
+    // removing multiple arguments (the same arguments we added from the previous .addArgument example.)
+    Query.removeArgument(m => [m.DurationUpperBound, m.DurationLowerBound]);
 });
 ```
 
 ### Altering default arguments
 
-You can alter default arguments that you would like to see different behavior in the GraphQL API.  
+You can alter default arguments on Query arguments that you would like to see different behavior in the GraphQL API.  
 
-Altering default arguments is similar to `MyORM`'s approach to configuring relationships.
+For example, say you have a table called "Track" in a database that stores music, and you would like your GraphQL endpoint to have the `Bytes` column to be queried from a string, rather than an integer, where the string would be expected to be two numbers separated by a dash (-), implying a range of numbers.
 
-Here is an example going off the example in [Adding custom arguments](#adding-custom-arguments) and [Removing default arguments](#removing-default-arguments) where instead of removing the old `Duration` argument, we alter it so it instead takes a `string` that would expected to be two numbers separated by a dash (`-`), where the first number is the lower bound and the second number is the upper bound.
+To change an argument, you just provide a callback within the `.addContext()` function in the second argument, where the callback you provide has access to a single parameter which has 4 properties, `Query`, `Insert`, `Update`, and `Delete`. The `Query` parameter has access to the function, `.changeArgument`, which you can use to change details about an argument in its respective root `GraphQLObjectType`.
+
+With the `.changeArgument` function, it will also remove the old argument that you reference in the callback you provide.  
+The dereferenced variable returns an object containing four (4) functions:  
+  - `.definedAs`: Accepts a callback function that has access to two parameters, `model` and `argVal`, where `model` is the model that the context represents. This is to be treated like a regular `.where()` function in `MyORM`, except the value intended to be used is `argVal`.
+  - `.describedAs`: Accepts a string which would be the new definition for the argument.
+  - `.namedAs`: Accepts a string which would be the new name for the argument.
+  - `.typedAs`: Accepts a `GraphQLScalarType` which would be the new type for the argument.
+
+Each of these functions are optional and can be used in any order. However, if `.definedAs()` is used with a different expected argument value, then `.typedAs()` should also be used, otherwise, GraphQL will throw an error about an unexpected argument type.  
+
+TypeScript will dynamically change the functions that are available based on what has and has not been used.
+
 
 ```ts
 import { GraphQLString } from 'graphql';
 // ... initialization
 
-gql.addContext(tracks, ({ changeArgument }) => {
-    changeArgument(m => m.Duration
-        // optional: you can change the name of the argument here.
-        .to("DurationRange") 
-        // required: This is the behavior of how the argument should be handled.
-        .as((m,argVal) => m.Duration.between(parseInt(argVal.split('-')[0]), parseInt(argVal.split('-')[1]))) 
-        // required: type for GraphQL to expect in the API.
+gql.addContext(tracks, ({ Query }) => {
+    Query.changeArgument(m => m.Duration
+        // optional: this is the behavior of how the argument should be handled. 
+        //   (NOTE: If the type of `argVal` is different than the intended argument type, then `.typedAs` must be used, 
+        //   otherwise GraphQL will throw an error if the argument is used.)
+        .definedAs((m,argVal) => m.Duration.between(parseInt(argVal.split('-')[0]), parseInt(argVal.split('-')[1]))) 
+        // optional: type for GraphQL to expect in the API.
         .typedAs(GraphQLString) 
+        // optional: you can change the name of the argument here.
+        .namedAs("DurationRange")
+        // optional: you can change the description from the normal description.
+        .describedAs("some description") 
     );
 });
 ```
+
+The functions to change attributes of the arguments can be used in any order. TypeScript will dynamically change the object until all four functions are used.  
 
 ## Other possibilites
 
