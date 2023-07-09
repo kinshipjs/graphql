@@ -358,7 +358,7 @@ For example, say you have a table called "Track" in a database that stores music
 To add an argument, you just provide a callback within the `.addContext()` function in the second argument, where the callback you provide has access to a single parameter which has 4 properties, `Query`, `Insert`, `Update`, and `Delete`. Each of these properties have the function `.addArgument`, which you can use to add an argument to its respective root `GraphQLObjectType`.
 
 `addArgument` takes in 3 arguments:
-  - `argName`: `string` - Name of the argument as it should appear in GraphQL
+  - `argName`: `{name: string, description?: string}` - Name and description of the argument as it should appear in GraphQL
   - `definitionCallback`: `function` - A callback that appears exactly as it does in `MyORM`'s `.where()` function, but this function has an additional paramter called `argVal`, which would be the argument value that was provided by the API caller.
   - `graphqlType`: `GraphQLScalarType` - A GraphQLScalarType that specifies what type the expected argument should be in the API. 
 
