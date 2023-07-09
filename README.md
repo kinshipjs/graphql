@@ -412,7 +412,7 @@ You can alter default arguments on Query arguments that you would like to see di
 
 For example, say you have a table called "Track" in a database that stores music, and you would like your GraphQL endpoint to have the `Bytes` column to be queried from a string, rather than an integer, where the string would be expected to be two numbers separated by a dash (-), implying a range of numbers.
 
-To change an argument, you just provide a callback within the `.addContext()` function in the second argument, where the callback you provide has access to a single parameter which has 4 properties, `Query`, `Insert`, `Update`, and `Delete`. The `Query` parameter has access to the function, `.changeArgument`, which you can use to change details about an argument in its respective root `GraphQLObjectType`.
+To change an argument, you just provide a callback within the `.addContext()` function in the second argument, where the callback you provide has access to a single parameter which has 4 properties, `Query`, `Insert`, `Update`, and `Delete`. Each of these properties have the function `.changeArgument`, which you can use to change an argument to its respective root `GraphQLObjectType`.  
 
 With the `.changeArgument` function, it will also remove the old argument that you reference in the callback you provide.  
 The dereferenced variable returns an object containing four (4) functions:  
@@ -420,6 +420,8 @@ The dereferenced variable returns an object containing four (4) functions:
   - `.describedAs`: Accepts a string which would be the new definition for the argument.
   - `.namedAs`: Accepts a string which would be the new name for the argument.
   - `.typedAs`: Accepts a `GraphQLScalarType` which would be the new type for the argument.
+
+__NOTE: Any edit query type does not have access to the `.definedAs` and `.typedAs` functions, as the original behavior for these arguments is required for the plugin to work as intended.__  
 
 Each of these functions are optional and can be used in any order. However, if `.definedAs()` is used with a different expected argument value, then `.typedAs()` should also be used, otherwise, GraphQL will throw an error about an unexpected argument type.  
 
@@ -445,8 +447,6 @@ gql.addContext(tracks, ({ Query }) => {
     );
 });
 ```
-
-The functions to change attributes of the arguments can be used in any order. TypeScript will dynamically change the object until all four functions are used.  
 
 ## Other possibilites
 
