@@ -12,6 +12,6 @@
         "sourceMap": true
     },
     "files": [
-        "../lib/src/adapter.js"
+        "../lib/src/index.js"
 	]
 }

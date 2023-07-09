@@ -8,12 +8,12 @@
     },
     "description": "Plugin that converts existing MyORM contexts into GraphQL endpoints.",
     "type": "module",
-    "main": "./dist/cjs/adapter.js",
-    "module": "./dist/esm/adapter.js",
-    "types": "./dist/esm/types/adapter.d.ts",
+    "main": "./dist/cjs/index.js",
+    "module": "./dist/esm/index.js",
+    "types": "./dist/esm/types/index.d.ts",
     "scripts": {
         "clean": "del /S /Q .\\dist",
-        "build": "npm run clean && npm run build:esm && npm run build:cjs",
+        "build": "npm run test && npm run clean && npm run build:esm && npm run build:cjs",
         "build:esm": "tsc -p ./configs/tsconfig.esm.json",
         "build:cjs": "tsc -p ./configs/tsconfig.cjs.json",
         "test": "node ./lib/tests/test.js",
@@ -34,15 +34,16 @@
     "license": "(MIT OR Apache-2.0)",
     "dependencies": {
         "@myorm/myorm": "^0.4.10",
-        "mysql2": "^3.2.4",
         "pluralize": "^8.0.0"
     },
     "devDependencies": {
+        "@myorm/json-adapter": "^0.0.2",
         "@myorm/mysql-adapter": "^0.4.1",
         "@types/node": "^20.3.1",
         "dotenv": "^16.0.3",
         "express": "^4.18.2",
         "express-graphql": "^0.12.0",
+        "mysql2": "^3.2.4",
         "typescript": "^4.9.4"
     },
     "files": [
@@ -51,12 +52,12 @@
     "exports": {
         ".": {
             "import": {
-                "types": "./dist/esm/types/adapter.d.ts",
-                "default": "./dist/esm/adapter.js"
+                "types": "./dist/esm/types/index.d.ts",
+                "default": "./dist/esm/index.js"
             },
             "require": {
-                "types": "./dist/cjs/types/adapter.d.ts",
-                "default": "./dist/cjs/adapter.js"
+                "types": "./dist/cjs/types/index.d.ts",
+                "default": "./dist/cjs/index.js"
             }
         }
     }
