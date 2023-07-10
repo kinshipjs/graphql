@@ -1,3 +1,5 @@
+![myorm-logo-text-description-640x283](https://github.com/myorm/myorm/assets/55516053/011d0513-48b5-44bc-aa1b-06860eeb7517)
+
 # `MyORM` GraphQL
 
 The `MyORM` GraphQL plugin serves as a fast and easy way to integrate your database to a GraphQL endpoint by providing various `MyORMContext` objects connected to tables, which then creates your root query and mutation types.
