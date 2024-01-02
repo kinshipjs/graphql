@@ -21,7 +21,7 @@
  * @prop {User} Owner 
  */
 
-/** @type {import('@myorm/json-adapter').JsonDatabase} */
+/** @type {import('@kinshipjs/json').JsonDatabase} */
 export const database = {
     $schema: {
         Car: {
@@ -33,6 +33,8 @@ export const database = {
                 isIdentity: true,
                 isVirtual: false,
                 isNullable: false,
+                isUnique: true,
+                commandAlias: "",
                 datatype: 'int',
                 defaultValue: () => undefined
             },
@@ -44,6 +46,8 @@ export const database = {
                 isIdentity: false,
                 isVirtual: false,
                 isNullable: false,
+                isUnique: false,
+                commandAlias: "",
                 datatype: 'string',
                 defaultValue: () => undefined
             },
@@ -55,6 +59,8 @@ export const database = {
                 isIdentity: false,
                 isVirtual: false,
                 isNullable: false,
+                isUnique: false,
+                commandAlias: "",
                 datatype: 'string',
                 defaultValue: () => undefined
             },
@@ -66,6 +72,8 @@ export const database = {
                 isIdentity: false,
                 isVirtual: false,
                 isNullable: true,
+                isUnique: false,
+                commandAlias: "",
                 datatype: 'string',
                 defaultValue: () => undefined
             },
@@ -77,6 +85,8 @@ export const database = {
                 isIdentity: false,
                 isVirtual: false,
                 isNullable: true,
+                isUnique: false,
+                commandAlias: "",
                 datatype: 'int',
                 defaultValue: () => undefined
             },
@@ -88,6 +98,8 @@ export const database = {
                 isIdentity: false,
                 isVirtual: false,
                 isNullable: true,
+                isUnique: false,
+                commandAlias: "",
                 datatype: 'int',
                 defaultValue: () => undefined
             },
@@ -99,6 +111,8 @@ export const database = {
                 isIdentity: false,
                 isVirtual: false,
                 isNullable: true,
+                isUnique: false,
+                commandAlias: "",
                 datatype: 'float',
                 defaultValue: () => undefined
             },
@@ -110,6 +124,8 @@ export const database = {
                 isIdentity: false,
                 isVirtual: false,
                 isNullable: true,
+                isUnique: false,
+                commandAlias: "",
                 datatype: 'float',
                 defaultValue: () => undefined
             },
@@ -123,6 +139,8 @@ export const database = {
                 isIdentity: true,
                 isVirtual: false,
                 isNullable: false,
+                isUnique: true,
+                commandAlias: "",
                 datatype: 'int',
                 defaultValue: () => undefined
             },
@@ -134,6 +152,8 @@ export const database = {
                 isIdentity: false,
                 isVirtual: false,
                 isNullable: false,
+                isUnique: false,
+                commandAlias: "",
                 datatype: 'string',
                 defaultValue: function () {
                     throw new Error("Function not implemented.");
@@ -147,6 +167,8 @@ export const database = {
                 isIdentity: false,
                 isVirtual: false,
                 isNullable: false,
+                isUnique: false,
+                commandAlias: "",
                 datatype: 'string',
                 defaultValue: function () {
                     throw new Error("Function not implemented.");

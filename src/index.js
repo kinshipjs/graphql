@@ -1,5 +1,5 @@
 //@ts-check
-import { MyORMContext } from '@myorm/myorm';
+import { KinshipContext } from '@kinshipjs/core';
 import {
     GraphQLObjectType,
     GraphQLList,
@@ -29,23 +29,23 @@ const numRowsAffectedObjectType = new GraphQLObjectType({
  * @typedef {object} UserDefinedArguments
  * @prop {string=} description
  * @prop {GraphQLScalarType} type
- * @prop {(model: import('@myorm/myorm').ChainObject<any>, argValue: any) => void} handler
+ * @prop {(model: any, argValue: any) => void} handler
  */
 
 /**
  * @typedef {object} ContextDetails
- * @prop {MyORMContext} context
+ * @prop {KinshipContext} context
  * @prop {string=} description
  * @prop {{customArgs: {[key: string]: UserDefinedArguments}, ignoredArgs: string[]}} queryCustomArgs
  * @prop {{customArgs: {[key: string]: UserDefinedArguments}, ignoredArgs: string[]}} insertCustomArgs
  * @prop {{customArgs: {[key: string]: UserDefinedArguments}, ignoredArgs: string[]}} updateCustomArgs
  * @prop {{customArgs: {[key: string]: UserDefinedArguments}, ignoredArgs: string[]}} deleteCustomArgs
- * @prop {MyORMGraphQLOptions} mutationOptions
+ * @prop {KinshipGraphQLOptions} mutationOptions
  */
 
 /**
  * Various options to alter the behavior of the GraphQL mutation root type.
- * @typedef {object} MyORMGraphQLOptions
+ * @typedef {object} KinshipGraphQLOptions
  * @prop {boolean=} disableDeletes
  * Disable the ability to delete rows using the `mutation` root type.
  * @prop {boolean=} disableInserts
@@ -57,13 +57,13 @@ const numRowsAffectedObjectType = new GraphQLObjectType({
 /**
  * Object to set up and configure for usage of dynamically creating `GraphQL` root query and mutation types.
  */
-export class MyORMGraphQL {
+export class KinshipGraphQL {
     /** @type {string} */ #name;
     /** @type {{[key: string]: ContextDetails}} */ #contexts;
     /** @type {Record<string, GraphQLObjectType>} */ #objectTypes;
 
     /**
-     * Construct a new MyORMGraphQL object for use within NodeJS' `graphql` library.
+     * Construct a new KinshipGraphQL object for use within NodeJS' `graphql` library.
      * @param {string} name
      * Name to prepend to all constructed object types associated with the determined record types for each context passed in.
      */
@@ -73,28 +73,28 @@ export class MyORMGraphQL {
     }
 
     /**
-     * Add a new context to this instance of `MyORMGraphQL` to generate a root query/mutation type.
-     * @template TContext
-     * Generic parameter representing the actual `MyORMContext` type being worked on from `context`.
-     * @param {TContext extends MyORMContext<infer T, infer U> ? TContext : never} context
+     * Add a new context to this instance of `KinshipGraphQL` to generate a root query/mutation type.
+     * @template TModel
+     * Generic parameter representing the actual `KinshipContext` type being worked on from `context`.
+     * @param {KinshipContext<TModel>} context
      * Context being added to this. 
-     * @param {((functions: ContextConfigurationCallbackModel<TContext extends MyORMContext<infer T, infer U> ? U : never>) => void)=} configurationCallback
+     * @param {((functions: ContextConfigurationCallbackModel<TModel>) => void)=} configurationCallback
      * Configuration callback used to add extra arguments to querying functions.
      * @param {{ name?: string, description?: string }=} details
      * Extra details that can be given to the root object type.
-     * @param {MyORMGraphQLOptions=} mutationOptions
+     * @param {KinshipGraphQLOptions=} mutationOptions
      * Various options to alter the behavior of the GraphQL mutation root type.
      * @returns {this}
-     * Reference back to the same `MyORMGraphQL` object for usage of chaining.
+     * Reference back to the same `KinshipGraphQL` object for usage of chaining.
      */
     addContext(context, configurationCallback=undefined, details=undefined, mutationOptions={ }) {
         let { name, description } = details ?? { name: undefined, description: undefined };
         //@ts-ignore _table is marked protected, but we need to use it here.
         const $table = context._table;
         const ctxName = name ?? $table;
-        description = description ?? `All records from the MyORM context representing the database table, "${$table}".`;
+        description = description ?? `All records from the Kinship context representing the database table, "${$table}".`;
         this.#contexts[ctxName] = {
-            context,
+            context: /** @type {any} */ (context),
             description,
             queryCustomArgs: {
                 customArgs: {},
@@ -177,11 +177,11 @@ export class MyORMGraphQL {
 
     /**
      * Get a `GraphQLObjectType` for the given `ctx` for querying records, given extra information.
-     * @param {MyORMContext} ctx
+     * @param {KinshipContext} ctx
      * Context to construct the `GraphQLObjectType` from.
      * @param {string} $table
      * Table that `ctx` represents.
-     * @param {{[x: string]: import('@myorm/myorm').DescribedSchema}} $schema
+     * @param {{[x: string]: any}} $schema
      * Schema of the table that `ctx` represents.
      * @param {Record<string, any>} $relationships
      * Relationships to the table that `ctx` was configured with.
@@ -200,7 +200,7 @@ export class MyORMGraphQL {
         for(const key in $schema) {
             fields[key] = {
                 type: getGraphQLType(key, $schema[key].datatype, $schema[key].isNullable || $schema[key].isIdentity),
-                description: `Property that represents the column, "${key}", within the table represented by MyORM as "${$table}"`
+                description: `Property that represents the column, "${key}", within the table represented by Kinship as "${$table}"`
             };
         }
         
@@ -258,7 +258,10 @@ export class MyORMGraphQL {
                 const { skip, take, ...dynamicArgs } = args;
                 
                 // function to choose the columns to grab based on what the user has selected from their gql query.
-                const selectFields = (selections, m) => {
+                const selectFields = (selections, m, noRecursion=false) => {
+                    if(noRecursion) {
+                        return selections.filter(s => s.selectionSet === undefined).flatMap(s => m[s.name.value]);
+                    }
                     return selections.flatMap(s => {
                         if(s.selectionSet) {
                             return selectFields(s.selectionSet.selections, m[s.name.value]);
@@ -289,12 +292,12 @@ export class MyORMGraphQL {
                 }
                 
                 // append sequential conditions for each static argument that was passed in by the user.
-                if(take) {
+                if(typeof take === 'number' && typeof skip === 'number') {
                     resolveCtx = resolveCtx.take(take);
-                    if(skip) {
-                        resolveCtx = resolveCtx.skip(skip);
-                    }
+                    resolveCtx = resolveCtx.skip(skip);
+                    resolveCtx = resolveCtx.sortBy(m => selectFields(resolvers.fieldNodes[0].selectionSet?.selections, m, true));
                 }
+
                 // include the appropriate relationships.
                 resolveCtx = resolveCtx.include(m => selectIncludes(resolvers.fieldNodes[0].selectionSet?.selections, m));
 
@@ -307,11 +310,11 @@ export class MyORMGraphQL {
 
     /**
      * Get a `GraphQLObjectType` for the given `ctx` for inserting records, given extra information.
-     * @param {MyORMContext} ctx
+     * @param {KinshipContext} ctx
      * Context to construct the `GraphQLObjectType` from.
      * @param {string} $table
      * Table that `ctx` represents.
-     * @param {{[x: string]: import('@myorm/myorm').DescribedSchema}} $schema
+     * @param {{[x: string]: any}} $schema
      * Schema of the table that `ctx` represents.
      * @param {Record<string, any>} $relationships
      * Relationships to the table that `ctx` was configured with.
@@ -330,7 +333,7 @@ export class MyORMGraphQL {
         for (const key in $schema) {
             fields[key] = {
                 type: getGraphQLType(key, $schema[key].datatype, $schema[key].isNullable),
-                description: `Property that represents the column, "${key}", within the table represented by MyORM as "${$table}"`
+                description: `Property that represents the column, "${key}", within the table represented by Kinship as "${$table}"`
             };
         }
 
@@ -364,7 +367,7 @@ export class MyORMGraphQL {
         };
 
         return {
-            type: GraphQLList(type),
+            type: new GraphQLList(type),
             description,
             args,
             resolve: async (_, args, __, resolvers) => {
@@ -375,11 +378,11 @@ export class MyORMGraphQL {
 
     /**
      * Get a `GraphQLObjectType` for the given `ctx` for updating records, given extra information.
-     * @param {MyORMContext} ctx
+     * @param {KinshipContext} ctx
      * Context to construct the `GraphQLObjectType` from.
      * @param {string} $table
      * Table that `ctx` represents.
-     * @param {{[x: string]: import('@myorm/myorm').DescribedSchema}} $schema
+     * @param {{[x: string]: any}} $schema
      * Schema of the table that `ctx` represents.
      * @param {Record<string, any>} $relationships
      * Relationships to the table that `ctx` was configured with.
@@ -439,11 +442,11 @@ export class MyORMGraphQL {
 
     /**
      * Get a `GraphQLObjectType` for the given `ctx` for deleting records, given extra information.
-     * @param {MyORMContext} ctx
+     * @param {KinshipContext} ctx
      * Context to construct the `GraphQLObjectType` from.
      * @param {string} $table
      * Table that `ctx` represents.
-     * @param {{[x: string]: import('@myorm/myorm').DescribedSchema}} $schema
+     * @param {{[x: string]: any}} $schema
      * Schema of the table that `ctx` represents.
      * @param {Record<string, any>} $relationships
      * Relationships to the table that `ctx` was configured with.
@@ -507,11 +510,8 @@ export class MyORMGraphQL {
         // loop through each context
         for (let ctxKey in this.#contexts) {
             const ctx = this.#contexts[ctxKey].context;
-            // @ts-ignore marked protected, but available for use here.
-            const $promise = ctx._promise;
-            await $promise;
-            // @ts-ignore marked protected, but available for use here.
-            const $table = ctx._table, $schema = ctx._schema, $relationships = ctx._relationships;
+            // @ts-ignore marked private, but available for use here.
+            const $table = ctx.__table, $schema = await ctx.__schema, $relationships = await ctx.__relationships;
 
             rootFields[ctxKey] = this.#getQueryObjectTypeConfigForContext(ctx, $table, $schema, $relationships, ctxKey, this.#contexts[ctxKey].description);
         }
@@ -541,7 +541,7 @@ export class MyORMGraphQL {
             const $promise = ctx._promise;
             await $promise;
             // @ts-ignore marked protected, but available for use here.
-            const $table = ctx._table, $schema = ctx._schema, $relationships = ctx._relationships;
+            const $table = ctx.__table, $schema = await ctx.__schema, $relationships = await ctx.__relationships;
             if(!this.#contexts[ctxKey].mutationOptions.disableInserts) {
                 rootFields[`insert${singular(ctxKey)}`] = this.#getInsertObjectTypeConfigForContext(ctx, $table, $schema, $relationships, ctxKey, `Insert a record into the "${$table}" database table.`);
             }
@@ -637,25 +637,27 @@ export class MyORMGraphQL {
 }
 
 /**
- * Get the `GraphQLScalarType` based on the type assigned by `MyORM`.
+ * Get the `GraphQLScalarType` based on the type assigned by `Kinship`.
  * @param {string} name
- * @param {"string"|"int"|"float"|"boolean"|"date"} type 
+ * @param {"string"|"int"|"float"|"boolean"|"date"|"nvarchar"|"bit"} type 
  * @param {boolean} nullable
  */
 function getGraphQLType(name, type, nullable) {
     let gqlType = null;
     switch(type) {
         case "string": gqlType = GraphQLString; break;
+        case "nvarchar": gqlType = GraphQLString; break;
         case "int": gqlType = GraphQLInt; break;
         case "float": gqlType = GraphQLFloat; break;
         case "boolean": gqlType = GraphQLBoolean; break;
+        case "bit": gqlType = GraphQLBoolean; break;
         case "date": gqlType = GraphQLString; break;
-        default: throw Error(`Could not determine type of ${name}. (MyORM determined type: ${type})`);
+        default: throw Error(`Could not determine type of ${name}. (Kinship determined type: ${type})`);
     }
     if(nullable) {
         return gqlType;
     }
-    return GraphQLNonNull(gqlType);
+    return new GraphQLNonNull(gqlType);
 }
 
 /**
@@ -674,7 +676,7 @@ function rDefine(relationships, fields, table, objectTypes) {
         for(const k in relationships[key].schema) {
             includedFields[k] = {
                 type: getGraphQLType(key, relationships[key].schema[k].datatype, relationships[key].schema[k].isNullable),
-                description: `Property that represents the column, "${key}", within the table represented by MyORM as "${table}"`
+                description: `Property that represents the column, "${key}", within the table represented by Kinship as "${table}"`
             };
         }
         includedFields = rDefine(relationships[key].relationships, includedFields, key, objectTypes);
@@ -692,7 +694,7 @@ function rDefine(relationships, fields, table, objectTypes) {
 
         if(relationships[key].type === "1:n") {
             fields[key] = {
-                type: GraphQLList(type),
+                type: new GraphQLList(type),
                 description: `Records from the table, "${relationships[key].foreign.table}", that relate to another table, "${relationships[key].primary.table}".`
             };
         } else {
@@ -706,7 +708,7 @@ function rDefine(relationships, fields, table, objectTypes) {
 }
 
 /**
- * @template {import('@myorm/myorm').SqlTable} T
+ * @template {object} T
  * @typedef {object} ContextConfigurationCallbackModel
  * @prop {ContextConfigurationForArgsCallbackModel<T>} Query
  * @prop {Omit<ContextConfigurationForArgsCallbackModel<T, "insert">, "addArgument">} Insert
@@ -716,7 +718,7 @@ function rDefine(relationships, fields, table, objectTypes) {
 
 /**
  * Various callback tools to allow the user to work with arguments in their GraphQL schema.
- * @template {import('@myorm/myorm').SqlTable} T
+ * @template {object} T
  * @template {"query"|"insert"|"update"|"delete"} [U="query"]
  * @typedef {object} ContextConfigurationForArgsCallbackModel
  * @prop {AddArgumentCallback<T>} addArgument
@@ -729,11 +731,11 @@ function rDefine(relationships, fields, table, objectTypes) {
 
 /**
  * Callback that can be used to add a custom argument into the GraphQL schema.
- * @template {import('@myorm/myorm').SqlTable} T
+ * @template {object} T
  * @callback AddArgumentCallback
  * @param {{name: string, description?: string}} details
  * @param {GraphQLScalarType} graphqlArgType
- * @param {(model: import('@myorm/myorm').ChainObject<T>, argValue: any) => void} callback
+ * @param {(model: import('@kinshipjs/core').ChainObject<T>, argValue: any) => void} callback
  */
 
 /**
@@ -746,7 +748,7 @@ function rDefine(relationships, fields, table, objectTypes) {
 
 /**
  * Callback that can be used to change an argument (automatically generated) in the GraphQL schema.
- * @template {import('@myorm/myorm').SqlTable} T
+ * @template {object} T
  * @template {"query"|"insert"|"update"|"delete"} [U="query"]
  * @callback ChangeArgumentCallback
  * @param {(model: {[K in keyof T]: Omit<ChangeArgumentCallbackModel<T, {}>, U extends "query" ? never : "definedAs"|"typedAs">}) => void} callback 
@@ -755,7 +757,7 @@ function rDefine(relationships, fields, table, objectTypes) {
 
 /**
  * Functions to be used for changing an existing (automaticlly generated) argument.
- * @template {import('@myorm/myorm').SqlTable} T
+ * @template {object} T
  * Model that the context represents
  * @template U
  * Dynamic structure of the {@link ChangeArgumentCallbackModel}, where if the key exists within this generic type, then it will be omitted from the next chain call.
@@ -772,7 +774,7 @@ function rDefine(relationships, fields, table, objectTypes) {
 
 /**
  * Provide a new name for the argument.
- * @template {import('@myorm/myorm').SqlTable} T
+ * @template {object} T
  * Model that the context represents
  * @template U
  * Dynamic structure of the {@link ChangeArgumentCallbackModel}, where if the key exists within this generic type, then it will be omitted from the next chain call.
@@ -785,31 +787,31 @@ function rDefine(relationships, fields, table, objectTypes) {
 
 /**
  * Provide a new definition for the filter of the argument.
- * @template {import('@myorm/myorm').SqlTable} T
+ * @template {object} T
  * Model that the context represents
  * @template U
  * Dynamic structure of the {@link ChangeArgumentCallbackModel}, where if the key exists within this generic type, then it will be omitted from the next chain call.
  * @callback DescribedAsCallback
  * @param {string} newDescription
- * Callback that will be augmented and passed into `MyORM`'s `.where()` function.
+ * Callback that will be augmented and passed into `Kinship`'s `.where()` function.
  * @returns {Omit<ChangeArgumentCallbackModel<T, U & { describedAs: null }>, keyof (U & { describedAs: null })>}
  */
 
 /**
  * Provide a new definition for the filter of the argument.
- * @template {import('@myorm/myorm').SqlTable} T
+ * @template {object} T
  * Model that the context represents
  * @template U
  * Dynamic structure of the {@link ChangeArgumentCallbackModel}, where if the key exists within this generic type, then it will be omitted from the next chain call.
  * @callback DefinedAsCallback
  * @param {AlteredWhereCallback<Omit<T, `filterBy_${keyof T}`>>} newDefinition
- * Callback that will be augmented and passed into `MyORM`'s `.where()` function.
+ * Callback that will be augmented and passed into `Kinship`'s `.where()` function.
  * @returns {Omit<ChangeArgumentCallbackModel<T, U & { definedAs: null }>, keyof (U & { definedAs: null })>}
  */
 
 /**
  * Provide a new type for the argument.
- * @template {import('@myorm/myorm').SqlTable} T
+ * @template {object} T
  * Model that the context represents
  * @template U
  * Dynamic structure of the {@link ChangeArgumentCallbackModel}, where if the key exists within this generic type, then it will be omitted from the next chain call.
@@ -820,11 +822,11 @@ function rDefine(relationships, fields, table, objectTypes) {
  */
 
 /**
- * The Where callback that appears in `MyORM`, slightly altered to have an extra parameter, `argValue` passed in.
- * @template {import('@myorm/myorm').SqlTable} T
+ * The Where callback that appears in `Kinship`, slightly altered to have an extra parameter, `argValue` passed in.
+ * @template {object} T
  * @callback AlteredWhereCallback
- * @param {import('@myorm/myorm').ChainObject<T>} model
- * Original model that would be used to create conditions on. (similar to `model` in `MyORM`'s `.where(model => model.Foo.equals(...))`.)
+ * @param {import('@kinshipjs/core').ChainObject<T>} model
+ * Original model that would be used to create conditions on. (similar to `model` in `Kinship`'s `.where(model => model.Foo.equals(...))`.)
  * @param {any} argValue
  * The value from the user that queries the GraphQL endpoint.
  * @returns {void}
