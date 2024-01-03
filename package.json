@@ -33,12 +33,12 @@
     "author": "Travis Zuleger",
     "license": "(MIT OR Apache-2.0)",
     "dependencies": {
-        "@kinshipjs/core": "file:../core",
+        "@kinshipjs/core": "^0.1.5",
+        "@kinshipjs/json": "^0.2.1",
         "graphql": "^16.8.1",
         "pluralize": "^8.0.0"
     },
     "devDependencies": {
-        "@kinshipjs/json": "^0.0.9-development",
         "@types/express": "^4.17.21",
         "@types/node": "^20.3.1",
         "dotenv": "^16.0.3",

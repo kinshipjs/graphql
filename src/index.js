@@ -512,7 +512,6 @@ export class KinshipGraphQL {
             const ctx = this.#contexts[ctxKey].context;
             // @ts-ignore marked private, but available for use here.
             const $table = ctx.__table, $schema = await ctx.__schema, $relationships = await ctx.__relationships;
-
             rootFields[ctxKey] = this.#getQueryObjectTypeConfigForContext(ctx, $table, $schema, $relationships, ctxKey, this.#contexts[ctxKey].description);
         }
 
